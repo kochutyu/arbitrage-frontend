@@ -1,116 +1,277 @@
 <div class="page">
-  <header class="hero">
-    <div class="hero__left">
-      <p class="eyebrow">Моніторинг арбітражу</p>
-      <h1>Спотові спреди між біржами</h1>
-      <p class="lede">Налаштовуй фільтри, оновлюй вручну або вмикай автооновлення, щоб бачити динаміку.</p>
-      <div class="hero__actions">
-        <button class="btn primary" (click)="refresh()" [disabled]="loading()">{{ loading() ? 'Завантаження...' : 'Оновити зараз' }}</button>
-        <button class="btn ghost" (click)="toggleAutoRefresh()">
-          {{ autoRefreshEnabled() ? 'Зупинити автооновлення' : 'Запустити автооновлення' }}
-        </button>
-        <span class="last-updated" *ngIf="lastUpdated()">Оновлено {{ lastUpdated() | date:'mediumTime' }}</span>
+  <header class="topbar">
+    <div class="topbar__left">
+      <div class="brand">
+        <p class="eyebrow">Моніторинг арбітражу</p>
+        <h1>Спотові спреди</h1>
       </div>
       <div class="status" *ngIf="error()">
         <span class="status__badge error">Помилка</span>
         <span>{{ error() }}</span>
       </div>
     </div>
-    <div class="hero__stats">
-      <div class="stat">
-        <div class="stat__label">Можливості</div>
-        <div class="stat__value">{{ filtered().length }}</div>
+    <div class="topbar__stats">
+      <div class="mini-stat">
+        <span class="mini-stat__label">Можливості</span>
+        <span class="mini-stat__value">{{ filtered().length }}</span>
       </div>
-      <div class="stat">
-        <div class="stat__label">Мін. різниця (%)</div>
-        <div class="stat__value">{{ minDiffPercent() | number:'1.0-2' }}</div>
+      <div class="mini-stat">
+        <span class="mini-stat__label">Мін. різниця (%)</span>
+        <span class="mini-stat__value">{{ useMinFilter() ? (minRange() | number:'1.0-2') : 'Вимкнено' }}</span>
       </div>
-      <div class="stat">
-        <div class="stat__label">Автооновлення</div>
-        <div class="stat__value">{{ autoRefreshEnabled() ? (autoRefreshMs() / 1000 | number:'1.0-0') + 'с' : 'Вимкнено' }}</div>
+      <div class="mini-stat">
+        <span class="mini-stat__label">Автооновлення</span>
+        <span class="mini-stat__value">{{ autoRefreshEnabled() ? (autoRefreshMs() / 1000 | number:'1.0-0') + ' c' : 'Вимкнено' }}</span>
       </div>
+      <div class="mini-stat">
+        <span class="mini-stat__label">Оновлено</span>
+        <span class="mini-stat__value">{{ lastUpdated() ? (lastUpdated() | date:'HH:mm:ss') : 'Ще не було' }}</span>
+      </div>
+      <button class="btn primary refresh-top" (click)="refresh()" [disabled]="loading()">
+        {{ loading() ? 'Завантаження...' : 'Оновити зараз' }}
+      </button>
+      <button
+        class="btn ghost icon-btn actions-toggle"
+        (click)="toggleActions()"
+        data-tip="Автооновлення"
+        aria-label="Автооновлення"
+      >
+        <span class="icon" aria-hidden="true">⚙</span>
+        <span class="sr-only">Автооновлення</span>
+      </button>
+      <button
+        class="btn ghost icon-btn filters-toggle"
+        (click)="toggleFilters()"
+        data-tip="Відкрити фільтри"
+        aria-label="Відкрити фільтри"
+      >
+        <span class="icon icon--filter" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+            <path
+              d="M4 5h16l-6.5 7.1v5.4l-3 1.5v-6.9z"
+              fill="currentColor"
+            />
+          </svg>
+        </span>
+        <span class="sr-only">Відкрити фільтри</span>
+      </button>
     </div>
   </header>
 
-  <section class="panel">
-    <div class="field">
-      <label>Мін. різниця, %</label>
-      <div class="inline-inputs">
-        <input type="range" min="0" max="10" step="0.1" [ngModel]="minDiffPercent()" (ngModelChange)="updateMinDiff($event)" />
-        <input type="number" step="0.1" min="0" [ngModel]="minDiffPercent()" (ngModelChange)="updateMinDiff($event)" />
+  <div class="actions-shell" [class.open]="actionsOpen()">
+    <div class="actions-overlay" (click)="closeActions()"></div>
+    <section class="panel actions-panel">
+      <div class="actions-panel__header">
+        <div>
+          <h3>Автооновлення</h3>
+          <p class="muted">Швидкі оновлення, автооновлення та фільтри</p>
+        </div>
+        <button class="btn ghost" (click)="closeActions()">Закрити</button>
       </div>
-    </div>
-    <div class="field">
-      <label>Пошук за символом</label>
-      <div class="inline-inputs">
-        <input type="text" placeholder="BTCUSDT" [ngModel]="search()" (ngModelChange)="search.set($event)" />
-        <button class="btn ghost" (click)="clearSearch()" [disabled]="!search()">Очистити</button>
+      <div class="actions-grid">
+        <div class="actions-card">
+          <p class="muted">Автооновлення</p>
+          <label class="toggle-inline">
+            <input type="checkbox" [checked]="autoRefreshEnabled()" (change)="toggleAutoRefresh()" />
+            Увімкнено
+          </label>
+          <label class="inline-inputs slim">
+            <span>кожні (мс)</span>
+            <input type="number" min="3000" step="1000" [ngModel]="autoRefreshMs()" (ngModelChange)="updateAutoInterval($event)" />
+          </label>
+          <span class="hint">Увімкнено — автооновлення, вимкнено — ручний режим.</span>
+        </div>
       </div>
-    </div>
-    <div class="field">
-      <label>Автооновлення кожні (мс)</label>
-      <div class="inline-inputs">
-        <input type="number" min="1000" step="1000" [ngModel]="autoRefreshMs()" (ngModelChange)="updateAutoInterval($event)" />
-        <span class="hint">Мінімум {{ 1000 }} мс</span>
-      </div>
-    </div>
-  </section>
-
-  <div class="table-header">
-    <div>
-      <h2>Результати</h2>
-      <p *ngIf="filtered().length">Показано {{ filtered().length }} символів</p>
-      <p *ngIf="!filtered().length && !loading()">Немає даних. Змініть фільтри або оновіть.</p>
-    </div>
-    <div class="pill" *ngIf="loading()">Завантаження...</div>
+    </section>
   </div>
 
-  <section class="panel table-panel">
-    <div class="table-wrapper" *ngIf="filtered().length">
-      <table>
-        <thead>
-          <tr>
-            <th>Символ</th>
-            <th>Чиста різниця % (після комісій)</th>
-            <th>Брутто різниця %</th>
-            <th>Мін</th>
-            <th>Макс</th>
-            <th>Купівля (ефект.)</th>
-            <th>Продаж (ефект.)</th>
-            <th>Біржі</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let item of filtered(); trackBy: trackBySymbol">
-            <td class="symbol">{{ item.symbol }}</td>
-            <td class="diff">{{ item.netDiff | number:'1.0-2' }}%</td>
-            <td class="muted">{{ item.diff | number:'1.0-2' }}%</td>
-            <td>{{ item.min | number:'1.0-6' }}</td>
-            <td>{{ item.max | number:'1.0-6' }}</td>
-            <td>
-              <div class="leg">
-                <div class="leg__exchange">{{ item.buy.exchange }}</div>
-                <div class="leg__price">сирий {{ item.buy.price | number:'1.0-6' }}</div>
-                <div class="leg__eff">ефект. {{ item.buy.effectivePrice | number:'1.0-6' }} (комісія {{ item.buy.feePercentApplied }}%)</div>
-              </div>
-            </td>
-            <td>
-              <div class="leg">
-                <div class="leg__exchange">{{ item.sell.exchange }}</div>
-                <div class="leg__price">сирий {{ item.sell.price | number:'1.0-6' }}</div>
-                <div class="leg__eff">ефект. {{ item.sell.effectivePrice | number:'1.0-6' }} (комісія {{ item.sell.feePercentApplied }}%)</div>
-              </div>
-            </td>
-            <td>
-              <div class="exchanges">
-                <span class="badge" *ngFor="let ex of exchangesList(item)">
-                  {{ ex.name }} · {{ ex.price | number:'1.0-6' }}
-                </span>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
+  <div class="layout">
+    <aside class="filters-shell" [class.open]="filtersOpen()">
+      <div class="filters-overlay" (click)="closeFilters()"></div>
+      <section class="panel filters-panel">
+        <div class="filters-panel__header">
+          <div>
+            <h3>Фільтри</h3>
+            <p class="muted">Налаштуйте діапазони, біржі та пошук</p>
+          </div>
+          <button class="btn ghost" (click)="closeFilters()">Закрити</button>
+        </div>
+        <div class="field">
+          <label>Базовий URL API</label>
+          <input type="text" [ngModel]="apiBase()" (ngModelChange)="apiBase.set($event)" placeholder="http://localhost:3000" />
+        </div>
+        <div class="field toggle-field">
+          <label>
+            <input type="checkbox" [checked]="useMinFilter()" (change)="toggleMinFilter()" />
+            Використовувати мінімум (%)
+          </label>
+          <div class="inline-inputs">
+            <input type="range" min="0" max="10" step="0.1" [ngModel]="minRange()" (ngModelChange)="updateMinRange($event)" />
+            <input type="number" step="0.1" min="0" [ngModel]="minRange()" (ngModelChange)="updateMinRange($event)" />
+          </div>
+        </div>
+        <div class="field toggle-field">
+          <label>
+            <input type="checkbox" [checked]="useMaxFilter()" (change)="toggleMaxFilter()" />
+            Використовувати максимум (%)
+          </label>
+          <div class="inline-inputs">
+            <input type="range" min="0" max="50" step="0.5" [ngModel]="maxRange()" (ngModelChange)="updateMaxRange($event)" />
+            <input type="number" step="0.5" min="0" [ngModel]="maxRange()" (ngModelChange)="updateMaxRange($event)" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Пошук за символом</label>
+          <div class="inline-inputs">
+            <input type="text" placeholder="BTCUSDT" [ngModel]="search()" (ngModelChange)="search.set($event)" />
+            <button class="btn ghost" (click)="clearSearch()" [disabled]="!search()">Очистити</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Фільтр бірж</label>
+          <div class="exchanges-list">
+            <label *ngFor="let name of availableExchanges()">
+              <input type="checkbox" [checked]="isExchangeSelected(name)" (change)="toggleExchange(name)" />
+              {{ name }}
+            </label>
+          </div>
+          <div class="inline-inputs">
+            <button class="btn ghost" (click)="resetExchangeFilter()" [disabled]="selectedExchanges().size === 0">Показати всі</button>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <main class="content">
+      <div class="table-header">
+        <div>
+          <h2>Результати</h2>
+          <p *ngIf="filtered().length">Показано {{ filtered().length }} символів</p>
+          <p *ngIf="!filtered().length && !loading()">Немає даних. Змініть фільтри або оновіть.</p>
+        </div>
+        <div class="pill" *ngIf="loading()">Завантаження...</div>
+      </div>
+
+      <section class="panel table-panel">
+        <div class="table-wrapper" *ngIf="filtered().length || loading()">
+          <table>
+            <thead>
+              <tr>
+                <th>Символ</th>
+                <th class="sortable" (click)="changeSort('netDiff')">
+                  <span class="th-sort">
+                    <span>Чиста різниця % (після комісій)</span>
+                    <span
+                      class="sort-icon"
+                      [class.active]="sortKey() === 'netDiff'"
+                      [class.asc]="sortKey() === 'netDiff' && sortDir() === 'asc'"
+                      [class.desc]="sortKey() === 'netDiff' && sortDir() === 'desc'"
+                    ></span>
+                  </span>
+                </th>
+                <th class="sortable" (click)="changeSort('diff')">
+                  <span class="th-sort">
+                    <span>Брутто різниця %</span>
+                    <span
+                      class="sort-icon"
+                      [class.active]="sortKey() === 'diff'"
+                      [class.asc]="sortKey() === 'diff' && sortDir() === 'asc'"
+                      [class.desc]="sortKey() === 'diff' && sortDir() === 'desc'"
+                    ></span>
+                  </span>
+                </th>
+                <th class="sortable" (click)="changeSort('min')">
+                  <span class="th-sort">
+                    <span>Мін</span>
+                    <span
+                      class="sort-icon"
+                      [class.active]="sortKey() === 'min'"
+                      [class.asc]="sortKey() === 'min' && sortDir() === 'asc'"
+                      [class.desc]="sortKey() === 'min' && sortDir() === 'desc'"
+                    ></span>
+                  </span>
+                </th>
+                <th class="sortable" (click)="changeSort('max')">
+                  <span class="th-sort">
+                    <span>Макс</span>
+                    <span
+                      class="sort-icon"
+                      [class.active]="sortKey() === 'max'"
+                      [class.asc]="sortKey() === 'max' && sortDir() === 'asc'"
+                      [class.desc]="sortKey() === 'max' && sortDir() === 'desc'"
+                    ></span>
+                  </span>
+                </th>
+                <th>Купівля (ефект.)</th>
+                <th>Продаж (ефект.)</th>
+                <th>Біржі</th>
+              </tr>
+            </thead>
+            <tbody *ngIf="!loading()">
+              <tr *ngFor="let item of filtered(); trackBy: trackBySymbol">
+                <td class="symbol">{{ item.symbol }}</td>
+                <td class="diff">{{ item.netDiff | number:'1.0-2' }}%</td>
+                <td class="muted">{{ item.diff | number:'1.0-2' }}%</td>
+                <td><span class="pill pill--buy">{{ item.min | number:'1.0-6' }}</span></td>
+                <td><span class="pill pill--sell">{{ item.max | number:'1.0-6' }}</span></td>
+                <td>
+                  <div class="leg leg--buy">
+                    <div class="leg__exchange">{{ item.buy.exchange }}</div>
+                    <div class="leg__price-row">
+                      <span class="leg__price">{{ item.buy.price | number:'1.0-6' }}</span>
+                      <span
+                        class="fee-tip"
+                        [attr.data-tip]="'Ефект. ' + (item.buy.effectivePrice | number:'1.0-6') + ' (комісія ' + item.buy.feePercentApplied + '%)'"
+                        [attr.aria-label]="'Ефект. ' + (item.buy.effectivePrice | number:'1.0-6') + ' (комісія ' + item.buy.feePercentApplied + '%)'"
+                      >
+                        i
+                      </span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="leg leg--sell">
+                    <div class="leg__exchange">{{ item.sell.exchange }}</div>
+                    <div class="leg__price-row">
+                      <span class="leg__price">{{ item.sell.price | number:'1.0-6' }}</span>
+                      <span
+                        class="fee-tip"
+                        [attr.data-tip]="'Ефект. ' + (item.sell.effectivePrice | number:'1.0-6') + ' (комісія ' + item.sell.feePercentApplied + '%)'"
+                        [attr.aria-label]="'Ефект. ' + (item.sell.effectivePrice | number:'1.0-6') + ' (комісія ' + item.sell.feePercentApplied + '%)'"
+                      >
+                        i
+                      </span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="exchanges condensed">
+                    <span
+                      class="badge info tooltip-badge"
+                      [attr.data-tip]="exchangesTooltip(item)"
+                      [attr.aria-label]="exchangesTooltip(item)"
+                    >
+                      інші біржі
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+            <tbody *ngIf="loading()" class="skeleton-body">
+              <tr *ngFor="let _ of skeletonRows">
+                <td><span class="skeleton skeleton-text wide"></span></td>
+                <td><span class="skeleton skeleton-text"></span></td>
+                <td><span class="skeleton skeleton-text"></span></td>
+                <td><span class="skeleton skeleton-text"></span></td>
+                <td><span class="skeleton skeleton-text"></span></td>
+                <td><span class="skeleton skeleton-text long"></span></td>
+                <td><span class="skeleton skeleton-text long"></span></td>
+                <td><span class="skeleton skeleton-text wide"></span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
 </div>

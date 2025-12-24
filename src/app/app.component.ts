@@ -22,8 +22,11 @@ interface OpportunityLeg {
   feePercentApplied: number;
 }
 
+type SortKey = 'netDiff' | 'diff' | 'min' | 'max';
+type SortDir = 'asc' | 'desc';
+
 const DEFAULT_API_BASE = 'https://arbitrage-production-e91f.up.railway.app';
-const MIN_REFRESH_INTERVAL = 1000;
+const MIN_REFRESH_INTERVAL = 3000;
 
 @Component({
   selector: 'app-root',
@@ -35,12 +38,22 @@ const MIN_REFRESH_INTERVAL = 1000;
 export class AppComponent {
   private readonly http = inject(HttpClient);
   private readonly destroyRef = inject(DestroyRef);
+  readonly skeletonRows = Array.from({ length: 6 }, (_, i) => i);
 
   readonly apiBase = signal<string>(DEFAULT_API_BASE);
-  readonly minDiffPercent = signal<number>(0.5);
+  readonly minRange = signal<number>(0.5);
+  readonly maxRange = signal<number>(5);
+  readonly useMinFilter = signal<boolean>(true);
+  readonly useMaxFilter = signal<boolean>(false);
+  readonly filtersOpen = signal<boolean>(false);
   readonly search = signal<string>('');
   readonly autoRefreshMs = signal<number>(15000);
   readonly autoRefreshEnabled = signal<boolean>(false);
+  readonly availableExchanges = signal<string[]>([]);
+  readonly selectedExchanges = signal<Set<string>>(new Set());
+  readonly actionsOpen = signal<boolean>(false);
+  readonly sortKey = signal<SortKey>('netDiff');
+  readonly sortDir = signal<SortDir>('desc');
 
   readonly opportunities = signal<ArbitrageOpportunity[]>([]);
   readonly loading = signal<boolean>(false);
@@ -51,11 +64,41 @@ export class AppComponent {
 
   readonly filtered = computed(() => {
     const query = this.search().trim().toUpperCase();
-    const threshold = this.minDiffPercent();
+    const minEnabled = this.useMinFilter();
+    const maxEnabled = this.useMaxFilter();
+    const min = this.minRange();
+    const max = this.maxRange();
+    const selected = this.selectedExchanges();
+    const applyExchangeFilter = selected.size > 0;
+
+    const key = this.sortKey();
+    const dir = this.sortDir();
+
+    const valueOf = (item: ArbitrageOpportunity): number => {
+      switch (key) {
+        case 'diff':
+          return item.diff;
+        case 'min':
+          return item.min;
+        case 'max':
+          return item.max;
+        default:
+          return item.netDiff;
+      }
+    };
+
     return [...this.opportunities()]
       .filter((item) => (query ? item.symbol.toUpperCase().includes(query) : true))
-      .filter((item) => (Number.isFinite(threshold) ? item.netDiff >= threshold : true))
-      .sort((a, b) => b.netDiff - a.netDiff);
+      .filter((item) => (!minEnabled ? true : item.netDiff >= min))
+      .filter((item) => (!maxEnabled ? true : item.netDiff <= max))
+      .filter((item) =>
+        applyExchangeFilter ? Object.keys(item.exchanges).some((name) => selected.has(name)) : true
+      )
+      .sort((a, b) => {
+        const aVal = valueOf(a);
+        const bVal = valueOf(b);
+        return dir === 'desc' ? bVal - aVal : aVal - bVal;
+      });
   });
 
   constructor() {
@@ -71,6 +114,12 @@ export class AppComponent {
       }
     });
 
+    effect(() => {
+      // reload exchanges when API base changes
+      this.apiBase();
+      this.loadExchanges();
+    });
+
     this.destroyRef.onDestroy(() => this.stopAutoRefresh());
   }
 
@@ -80,10 +129,14 @@ export class AppComponent {
     try {
       const base = this.apiBase().replace(/\/$/, '');
       const url = `${base}/api/arbitrage`;
-      const params = { minDiffPercent: String(this.minDiffPercent()) };
+      const params: Record<string, string> = {};
+      if (this.useMinFilter()) {
+        params['minDiffPercent'] = String(this.minRange());
+      }
       const data = await firstValueFrom(this.http.get<ArbitrageOpportunity[]>(url, { params }));
       this.opportunities.set(data);
       this.lastUpdated.set(new Date());
+      this.resetSort();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to fetch data';
       this.error.set(message);
@@ -96,9 +149,14 @@ export class AppComponent {
     this.autoRefreshEnabled.update((enabled) => !enabled);
   }
 
-  updateMinDiff(value: number | string): void {
+  updateMinRange(value: number | string): void {
     const parsed = Number(value);
-    this.minDiffPercent.set(Number.isNaN(parsed) ? 0 : parsed);
+    this.minRange.set(Number.isNaN(parsed) ? 0 : parsed);
+  }
+
+  updateMaxRange(value: number | string): void {
+    const parsed = Number(value);
+    this.maxRange.set(Number.isNaN(parsed) ? 0 : parsed);
   }
 
   updateAutoInterval(value: number | string): void {
@@ -111,12 +169,82 @@ export class AppComponent {
     this.search.set('');
   }
 
+  toggleExchange(name: string): void {
+    const current = this.selectedExchanges();
+    const next = new Set(current);
+    next.has(name) ? next.delete(name) : next.add(name);
+    this.selectedExchanges.set(next);
+  }
+
+  resetExchangeFilter(): void {
+    this.selectedExchanges.set(new Set());
+  }
+
+  isExchangeSelected(name: string): boolean {
+    return this.selectedExchanges().has(name);
+  }
+
+  toggleFilters(): void {
+    this.filtersOpen.update((open) => !open);
+  }
+
+  closeFilters(): void {
+    this.filtersOpen.set(false);
+  }
+
+  toggleActions(): void {
+    this.actionsOpen.update((open) => !open);
+  }
+
+  closeActions(): void {
+    this.actionsOpen.set(false);
+  }
+
+  toggleMinFilter(): void {
+    this.useMinFilter.update((value) => !value);
+  }
+
+  toggleMaxFilter(): void {
+    this.useMaxFilter.update((value) => !value);
+  }
+
   exchangesList(opportunity: ArbitrageOpportunity): { name: string; price: number }[] {
     return Object.entries(opportunity.exchanges).map(([name, price]) => ({ name, price }));
   }
 
+  exchangesTooltip(opportunity: ArbitrageOpportunity): string {
+    return Object.entries(opportunity.exchanges)
+      .map(([name, price]) => `${name}: ${price.toFixed(6)}`)
+      .join('\n');
+  }
+
+  changeSort(key: SortKey): void {
+    if (this.sortKey() === key) {
+      this.sortDir.update((dir) => (dir === 'asc' ? 'desc' : 'asc'));
+    } else {
+      this.sortKey.set(key);
+      this.sortDir.set(key === 'min' ? 'asc' : 'desc');
+    }
+  }
+
+  private resetSort(): void {
+    this.sortKey.set('netDiff');
+    this.sortDir.set('desc');
+  }
+
   trackBySymbol(_index: number, item: ArbitrageOpportunity): string {
     return item.symbol;
+  }
+
+  private async loadExchanges(): Promise<void> {
+    try {
+      const base = this.apiBase().replace(/\/$/, '');
+      const url = `${base}/api/exchanges`;
+      const list = await firstValueFrom(this.http.get<string[]>(url));
+      this.availableExchanges.set(list);
+    } catch (error) {
+      console.warn('Не вдалося завантажити перелік бірж', error);
+    }
   }
 
   private startAutoRefresh(intervalMs: number): void {
