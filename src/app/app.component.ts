@@ -364,6 +364,16 @@ export class AppComponent {
     return line ? line : 'Немає даних по виконуваній ціні (order book / ticker)';
   }
 
+  buyEffectiveTooltipText(opportunity: ArbitrageOpportunity): string {
+    const effective = formatFlexibleNumber(opportunity.buy.effectivePrice, 6, 0);
+    return `Ефект. ${effective} (комісія ${opportunity.buy.feePercentApplied}%)\n${this.buyTooltip(opportunity)}`;
+  }
+
+  sellEffectiveTooltipText(opportunity: ArbitrageOpportunity): string {
+    const effective = formatFlexibleNumber(opportunity.sell.effectivePrice, 6, 0);
+    return `Ефект. ${effective} (комісія ${opportunity.sell.feePercentApplied}%)\n${this.sellTooltip(opportunity)}`;
+  }
+
   profitPercent(opportunity: ArbitrageOpportunity): number | null {
     const pnl = opportunity.realProfitUsd;
     const size = opportunity.tradeAmountUsd;
@@ -420,6 +430,14 @@ function formatNumber(value: number, digits: number): string {
   return new Intl.NumberFormat('uk-UA', {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits
+  }).format(value);
+}
+
+function formatFlexibleNumber(value: number, maximumFractionDigits: number, minimumFractionDigits = 0): string {
+  if (!Number.isFinite(value)) return '—';
+  return new Intl.NumberFormat('uk-UA', {
+    minimumFractionDigits,
+    maximumFractionDigits
   }).format(value);
 }
 

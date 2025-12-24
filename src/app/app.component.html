@@ -255,10 +255,10 @@
                       <span class="leg__price">{{ item.buy.price | number:'1.0-6' }}</span>
                       <span
                         class="fee-tip"
-                        [attr.aria-label]="'Ефект. ' + (item.buy.effectivePrice | number:'1.0-6') + ' (комісія ' + item.buy.feePercentApplied + '%)\n' + buyTooltip(item)"
-                        (mouseenter)="showFloatingTooltip($event, 'Ефект. ' + (item.buy.effectivePrice | number:'1.0-6') + ' (комісія ' + item.buy.feePercentApplied + '%)\n' + buyTooltip(item))"
+                        [attr.aria-label]="buyEffectiveTooltipText(item)"
+                        (mouseenter)="showFloatingTooltip($event, buyEffectiveTooltipText(item))"
                         (mouseleave)="hideFloatingTooltip()"
-                        (focus)="showFloatingTooltip($event, 'Ефект. ' + (item.buy.effectivePrice | number:'1.0-6') + ' (комісія ' + item.buy.feePercentApplied + '%)\n' + buyTooltip(item))"
+                        (focus)="showFloatingTooltip($event, buyEffectiveTooltipText(item))"
                         (blur)="hideFloatingTooltip()"
                       >
                         i
@@ -273,10 +273,10 @@
                       <span class="leg__price">{{ item.sell.price | number:'1.0-6' }}</span>
                       <span
                         class="fee-tip"
-                        [attr.aria-label]="'Ефект. ' + (item.sell.effectivePrice | number:'1.0-6') + ' (комісія ' + item.sell.feePercentApplied + '%)\n' + sellTooltip(item)"
-                        (mouseenter)="showFloatingTooltip($event, 'Ефект. ' + (item.sell.effectivePrice | number:'1.0-6') + ' (комісія ' + item.sell.feePercentApplied + '%)\n' + sellTooltip(item))"
+                        [attr.aria-label]="sellEffectiveTooltipText(item)"
+                        (mouseenter)="showFloatingTooltip($event, sellEffectiveTooltipText(item))"
                         (mouseleave)="hideFloatingTooltip()"
-                        (focus)="showFloatingTooltip($event, 'Ефект. ' + (item.sell.effectivePrice | number:'1.0-6') + ' (комісія ' + item.sell.feePercentApplied + '%)\n' + sellTooltip(item))"
+                        (focus)="showFloatingTooltip($event, sellEffectiveTooltipText(item))"
                         (blur)="hideFloatingTooltip()"
                       >
                         i
