@@ -160,7 +160,7 @@
                 <th>Символ</th>
                 <th class="sortable" (click)="changeSort('netDiff')">
                   <span class="th-sort">
-                    <span>Чиста різниця % (після комісій)</span>
+                    <span>Профіт%</span>
                     <span
                       class="sort-icon"
                       [class.active]="sortKey() === 'netDiff'"
@@ -169,9 +169,31 @@
                     ></span>
                   </span>
                 </th>
+                <th class="sortable" (click)="changeSort('profitUsd')">
+                  <span class="th-sort">
+                    <span>Профіт, $</span>
+                    <span
+                      class="sort-icon"
+                      [class.active]="sortKey() === 'profitUsd'"
+                      [class.asc]="sortKey() === 'profitUsd' && sortDir() === 'asc'"
+                      [class.desc]="sortKey() === 'profitUsd' && sortDir() === 'desc'"
+                    ></span>
+                  </span>
+                </th>
+                <th class="sortable" (click)="changeSort('tradeAmountUsd')">
+                  <span class="th-sort">
+                    <span>Обсяг, $</span>
+                    <span
+                      class="sort-icon"
+                      [class.active]="sortKey() === 'tradeAmountUsd'"
+                      [class.asc]="sortKey() === 'tradeAmountUsd' && sortDir() === 'asc'"
+                      [class.desc]="sortKey() === 'tradeAmountUsd' && sortDir() === 'desc'"
+                    ></span>
+                  </span>
+                </th>
                 <th class="sortable" (click)="changeSort('diff')">
                   <span class="th-sort">
-                    <span>Брутто різниця %</span>
+                    <span>Профіт (брутто)</span>
                     <span
                       class="sort-icon"
                       [class.active]="sortKey() === 'diff'"
@@ -211,6 +233,18 @@
               <tr *ngFor="let item of filtered(); trackBy: trackBySymbol">
                 <td class="symbol">{{ item.symbol }}</td>
                 <td class="diff">{{ item.netDiff | number:'1.0-2' }}%</td>
+                <td>
+                  <span
+                    class="pnl"
+                    [class.pnl--pos]="(item.realProfitUsd ?? 0) > 0"
+                    [class.pnl--neg]="(item.realProfitUsd ?? 0) < 0"
+                    [attr.data-tip]="validationTooltip(item)"
+                    [attr.aria-label]="validationTooltip(item)"
+                  >
+                    {{ item.realProfitUsd !== undefined ? (item.realProfitUsd | number:'1.2-2') : '—' }}
+                  </span>
+                </td>
+                <td>{{ item.tradeAmountUsd !== undefined ? (item.tradeAmountUsd | number:'1.0-0') : '—' }}</td>
                 <td class="muted">{{ item.diff | number:'1.0-2' }}%</td>
                 <td><span class="pill pill--buy">{{ item.min | number:'1.0-6' }}</span></td>
                 <td><span class="pill pill--sell">{{ item.max | number:'1.0-6' }}</span></td>
@@ -221,8 +255,11 @@
                       <span class="leg__price">{{ item.buy.price | number:'1.0-6' }}</span>
                       <span
                         class="fee-tip"
-                        [attr.data-tip]="'Ефект. ' + (item.buy.effectivePrice | number:'1.0-6') + ' (комісія ' + item.buy.feePercentApplied + '%)'"
-                        [attr.aria-label]="'Ефект. ' + (item.buy.effectivePrice | number:'1.0-6') + ' (комісія ' + item.buy.feePercentApplied + '%)'"
+                        [attr.aria-label]="'Ефект. ' + (item.buy.effectivePrice | number:'1.0-6') + ' (комісія ' + item.buy.feePercentApplied + '%)\n' + buyTooltip(item)"
+                        (mouseenter)="showFloatingTooltip($event, 'Ефект. ' + (item.buy.effectivePrice | number:'1.0-6') + ' (комісія ' + item.buy.feePercentApplied + '%)\n' + buyTooltip(item))"
+                        (mouseleave)="hideFloatingTooltip()"
+                        (focus)="showFloatingTooltip($event, 'Ефект. ' + (item.buy.effectivePrice | number:'1.0-6') + ' (комісія ' + item.buy.feePercentApplied + '%)\n' + buyTooltip(item))"
+                        (blur)="hideFloatingTooltip()"
                       >
                         i
                       </span>
@@ -236,8 +273,11 @@
                       <span class="leg__price">{{ item.sell.price | number:'1.0-6' }}</span>
                       <span
                         class="fee-tip"
-                        [attr.data-tip]="'Ефект. ' + (item.sell.effectivePrice | number:'1.0-6') + ' (комісія ' + item.sell.feePercentApplied + '%)'"
-                        [attr.aria-label]="'Ефект. ' + (item.sell.effectivePrice | number:'1.0-6') + ' (комісія ' + item.sell.feePercentApplied + '%)'"
+                        [attr.aria-label]="'Ефект. ' + (item.sell.effectivePrice | number:'1.0-6') + ' (комісія ' + item.sell.feePercentApplied + '%)\n' + sellTooltip(item)"
+                        (mouseenter)="showFloatingTooltip($event, 'Ефект. ' + (item.sell.effectivePrice | number:'1.0-6') + ' (комісія ' + item.sell.feePercentApplied + '%)\n' + sellTooltip(item))"
+                        (mouseleave)="hideFloatingTooltip()"
+                        (focus)="showFloatingTooltip($event, 'Ефект. ' + (item.sell.effectivePrice | number:'1.0-6') + ' (комісія ' + item.sell.feePercentApplied + '%)\n' + sellTooltip(item))"
+                        (blur)="hideFloatingTooltip()"
                       >
                         i
                       </span>
@@ -262,6 +302,9 @@
                 <td><span class="skeleton skeleton-text wide"></span></td>
                 <td><span class="skeleton skeleton-text"></span></td>
                 <td><span class="skeleton skeleton-text"></span></td>
+                <td><span class="skeleton skeleton-text"></span></td>
+                <td><span class="skeleton skeleton-text"></span></td>
+                <td><span class="skeleton skeleton-text wide"></span></td>
                 <td><span class="skeleton skeleton-text"></span></td>
                 <td><span class="skeleton skeleton-text"></span></td>
                 <td><span class="skeleton skeleton-text long"></span></td>
